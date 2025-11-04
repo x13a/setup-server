@@ -1,0 +1,8 @@
+[DEFAULT]
+bantime  = 1d
+maxretry = 2
+
+[sshd]
+enabled = true
+mode    = aggressive
+port    = 10101

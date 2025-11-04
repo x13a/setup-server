@@ -1,0 +1,17 @@
+{
+    "live-restore": true,
+    "no-new-privileges": true,
+    "userns-remap": "default",
+    "log-opts": {
+        "max-size": "10m",
+        "max-file": "5",
+        "mode": "non-blocking"
+    },
+    "default-ulimits": {
+        "nofile": {
+            "Name": "nofile",
+            "Hard": 65535,
+            "Soft": 65535
+        }
+    }
+}
