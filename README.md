@@ -51,8 +51,8 @@ workloads.
 Clone the repo and switch into it:
 
 ```sh
-git clone https://github.com/x13a/server-setup
-cd server-setup
+git clone https://github.com/x13a/setup-server
+cd setup-server
 ```
 
 Optional configuration before running:
