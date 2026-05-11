@@ -214,17 +214,14 @@ configure_system() {
 
 setup_swap() {
     local swap_file="/swapfile"
-    local swap_size="${SWAP_SIZE:-}"
+    local swap_size="${SWAP_SIZE:-512M}"
     local min_free_mb=1024
     local ram_mb swap_mb avail_mb
-    if swapon --show | grep -q '^'; then
+    if swapon --show=NAME | grep -qx '$swap_file'; then
         echo "[*] swap is already active"
         return 0
     fi
     ram_mb="$(free -m | awk '/^Mem:/ {print $2}')"
-    if [ -z "$swap_size" ]; then
-        swap_size="512M"
-    fi
     swap_mb="$(echo "$swap_size" | awk '
         /G$/ {print int($1 * 1024)}
         /M$/ {print int($1)}
@@ -263,7 +260,6 @@ setup_zram() {
     local zram_enabled="${ZRAM:-auto}"
     local zram_percent="${ZRAM_PERCENT:-50}"
     local zram_max_mb="${ZRAM_MAX:-2048}"
-    local swap_size_mb="${SWAP_SIZE:-0}"
     local target="/etc/default/zramswap"
     local template="$BASE_DIR/$target"
     local tmp_file
