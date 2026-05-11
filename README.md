@@ -9,7 +9,7 @@ workloads.
 - **User Management**
   - Creates a new sudo-enabled user.
   - Automatically switches to the new user context.
-  - Grants temporary passwordless `sudo` access during setup and removes it afterward.
+  - Grants passwordless `sudo` access.
 
 - **SSH Configuration**
   - Prompts for your SSH public key and securely installs it.
@@ -21,7 +21,7 @@ workloads.
 - **Firewall & Security**
   - Configures **UFW** to allow only SSH access on the configured port.
   - Installs and sets up **Fail2Ban** to protect against brute-force attacks.
-  - Deploys custom sysctl config for network hardening.
+  - Deploys custom sysctl config for network hardening and swap optimisation.
 
 - **Docker Installation**
   - Automatically installs the latest Docker version using the official script.

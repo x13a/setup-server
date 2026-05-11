@@ -35,7 +35,7 @@ create_user() {
     local sudoers_file="/etc/sudoers.d/$username"
     if ! id "$username" &>/dev/null; then
         adduser --gecos "" "$username"
-        usermod -aG sudo "$username"
+        usermod -aG sudo,adm "$username"
         echo "[+] user '$username' created and added to sudo group"
     fi
     echo "$username ALL=(ALL) NOPASSWD:ALL" > "$sudoers_file"
@@ -57,12 +57,7 @@ switch_to_user() {
         rm -rf "$BASE_DIR"
     fi
     echo "[*] switching to user '$username'..."
-    exec su - "$username" -c "export SWITCHED=1; bash '$dest_dir/$script_name'"
-}
-
-rm_sudoers() {
-    local username="$1"
-    sudo rm -f "/etc/sudoers.d/$username"
+    exec su - "$username" -c "bash '$dest_dir/$script_name'"
 }
 
 # ============================
@@ -206,7 +201,7 @@ update_system() {
 }
 
 configure_system() {
-    local target="/etc/sysctl.d/99-net-hardening.conf"
+    local target="/etc/sysctl.d/99-srv.conf"
     [[ -f "$BASE_DIR/$target" ]] || { echo "error: missing $target, exit" >&2; exit 1; }
     echo "[*] configuring system..."
     sudo install -m 644 -o root -g root "$BASE_DIR/$target" "$target"
@@ -287,7 +282,7 @@ setup_zram() {
     fi
     [[ -f "$template" ]] || { echo "error: missing ZRAM template $template, exit" >&2; exit 1; }
     echo "[+] Enabling ZRAM…"
-    sudo apt-get install -y zram-tools
+    sudo apt-get install -y zram-tools linux-modules-extra-$(uname -r)
     tmp_file="$(mktemp)"
     sed \
         -e "s/{{PERCENT}}/${zram_percent}/" \
@@ -318,10 +313,6 @@ main() {
         switch_to_user
     fi
     local username="${VARS[username]}"
-    if [ "${SWITCHED:-}" = "1" ]; then
-        export TRAP_USER="$username"
-        trap 'rm_sudoers "$TRAP_USER"' EXIT INT TERM
-    fi
     echo "[*] running as $username"
     update_system
     configure_ssh
