@@ -39,6 +39,7 @@ SWAP_SIZE=1G ZRAM=on ./setup-swap.sh
 | Variable | Default | Meaning |
 | --- | --- | --- |
 | `SSH_PORT` | `10101` | Port 1–65535 |
+| `UFW` | - | Skip iptables configuration if set |
 | `SWAP_SIZE` | `512M` | It can be 512M or 1G etc; an active swap file is kept if the same size |
 | `ZRAM` | `auto` | `auto`, `on`, or `off`; auto configures ZRAM when RAM <= 2 GiB, otherwise leaves it unchanged |
 | `ZRAM_PERCENT` | `50` | Percentage of RAM used to calculate ZRAM size |

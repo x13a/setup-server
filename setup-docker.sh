@@ -33,9 +33,9 @@ install_deps() {
 
 install_docker() {
     command -v docker &>/dev/null && { 
-        echo "[*] docker already installed";
+        echo "[*] docker already installed"
         add_user_to_docker
-        return 0;
+        return 0
     }
     install_deps
     echo "[*] installing docker"
@@ -79,8 +79,8 @@ restart_docker() {
 main() {
     echo "[*] starting"
     is_root && {
-        echo "[!] error: running as root denied, exit" >&2;
-        exit 1;
+        echo "[!] error: running as root denied, exit" >&2
+        exit 1
     }
     install_docker
     configure_docker

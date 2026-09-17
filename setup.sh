@@ -50,11 +50,11 @@ prompt_username() {
 }
 
 create_user() {
-    if ! id "$USERNAME" &>/dev/null; then
+    id "$USERNAME" &>/dev/null || {
         adduser --gecos "" "$USERNAME"
         usermod -aG sudo,adm "$USERNAME"
         echo "[+] user '$USERNAME' created and added to sudo and adm groups"
-    fi
+    }
     local -r sudoers_file="/etc/sudoers.d/$USERNAME"
     echo "[*] creating file $sudoers_file"
     echo "$USERNAME ALL=(ALL) NOPASSWD:ALL" > "$sudoers_file"
@@ -64,8 +64,8 @@ create_user() {
 switch_to_user() {
     local script_path src_base script_name user_home
     script_path="$(realpath "$0")" || { 
-        echo "[!] error: cannot resolve current script path, exit" >&2; 
-        exit 1; 
+        echo "[!] error: cannot resolve current script path, exit" >&2
+        exit 1
     }
     src_base="$(basename "$BASE_DIR")"
     script_name="$(basename "$script_path")"
@@ -76,12 +76,12 @@ switch_to_user() {
     cp -a "$BASE_DIR/." "$dest_dir/"
     chown -R "$USERNAME:$USERNAME" "$dest_dir"
     [[ "$BASE_DIR" == /root/* ]] && {
-        echo "[*] removing $BASE_DIR";
-        rm -rf "$BASE_DIR";
+        echo "[*] removing $BASE_DIR"
+        rm -rf "$BASE_DIR"
     }
     echo "[*] switching to user '$USERNAME'"
     exec su --login \
-        --whitelist-environment=SSH_PORT \
+        --whitelist-environment=SSH_PORT,UFW \
         "$USERNAME" \
         -c "bash '$dest_dir/$script_name'"
 }
@@ -91,20 +91,20 @@ switch_to_user() {
 # ============================
 
 configure_ssh() {
+    local confirm port
+    read -rp "[?] configure ssh (Y/n): " confirm
+    [[ "$confirm" == [nN] ]] && {
+        port=$(find_ssh_port) || exit 1
+        readonly SSH_PORT="$port"
+        return 0
+    }
     echo "[*] configuring ssh"
     echo "[*] SSH_PORT=$SSH_PORT"
-    local port="$SSH_PORT"
-    if [[ -z "$port" ]]; then
-        local ports
-        ports="$(sudo sshd -G 2>/dev/null | awk '/^port / {print $2}')"
-        while IFS= read -r port; do
-            [[ -n "$port" && "$port" != "22" ]] && break
-        done <<< "$ports"
-        [[ -z "$port" ]] && port="$DEFAULT_SSH_PORT"
-    fi
+    port="$SSH_PORT"
+    [[ -n "$port" ]] || { port=$(find_ssh_port) || exit 1; }
     is_port "$port" || {
-        echo "[!] error: invalid ssh port, exit" >&2;
-        exit 1;
+        echo "[!] error: invalid ssh port $port, exit" >&2
+        exit 1
     }
     [[ "$port" == "22" && "$SSH_PORT" != "22" ]] && port="$DEFAULT_SSH_PORT"
     readonly SSH_PORT="$port"
@@ -113,9 +113,27 @@ configure_ssh() {
     deploy_ssh_config
 }
 
+find_ssh_port() {
+    local ports
+    ports="$(sudo sshd -G | awk '/^port / {print $2}')" || {
+        echo "[!] error: failed to read ssh config" >&2
+        return 1
+    }
+    local port=""
+    local tmp_port
+    while IFS= read -r tmp_port; do
+        [[ -n "$tmp_port" ]] || continue
+        port="$tmp_port"
+        [[ "$port" != "22" ]] && break
+    done <<< "$ports"
+    [[ -n "$port" ]] || port="$DEFAULT_SSH_PORT"
+    printf '%s' "$port"
+
+}
+
 add_ssh_pub_key() {
     local pub_key
-    read -rp "[?] enter your ssh public key, press enter to skip: " pub_key
+    read -rp "[?] enter your ssh public key (press enter to skip): " pub_key
     [[ -z "$pub_key" ]] && return 0
     local -r ssh_dir="$HOME/.ssh"
     local -r authorized_keys="$ssh_dir/authorized_keys"
@@ -141,10 +159,10 @@ deploy_ssh_config() {
     sudo install -b -S '~' -m 0600 "$tmp_file" "$SSH_FILE"
     rm -f "$tmp_file"
     sudo sshd -t || {
-        echo "[!] error: ssh config file test failed, exit" >&2;
-        sudo rm -f "$SSH_FILE";
+        echo "[!] error: ssh config file test failed, exit" >&2
+        sudo rm -f "$SSH_FILE"
         [[ "$has_conf" == true ]] && sudo cp -p "$SSH_FILE~" "$SSH_FILE"
-        exit 1;
+        exit 1
     }
     echo "[+] ssh config file deployed to $SSH_FILE"
 }
@@ -154,8 +172,12 @@ deploy_ssh_config() {
 # ============================
 
 configure_iptables() {
+    [[ -v "UFW" ]] && return 0
+    local confirm
+    read -rp "[?] configure iptables (Y/n): " confirm
+    [[ "$confirm" == [nN] ]] && return 0
     echo "[*] configuring iptables rules"
-    local opt dst src tmp_file
+    local opt dst src tmp_file cmd
     for opt in 4 6; do
         echo "[*] configuring ipv$opt rules"
         dst="$IPTABLES_FILE_PART${opt}"
@@ -165,6 +187,13 @@ configure_iptables() {
         sed \
             -e "s/$DEFAULT_SSH_PORT/$SSH_PORT/" \
             "$src" > "$tmp_file"
+        cmd="iptables-restore"
+        [[ "$opt" == "6" ]] && cmd="ip6tables-restore"
+        sudo "$cmd" --test "$tmp_file" || {
+            echo "[!] error: iptables config file test failed, exit" >&2
+            rm -f "$tmp_file"
+            exit 1
+        }
         sudo install -b -S '~' -m 0640 "$tmp_file" "$dst"
         rm -f "$tmp_file"
         echo "[+] iptables config file deployed to $dst"
@@ -177,6 +206,9 @@ configure_iptables() {
 # ============================
 
 setup_fail2ban() {
+    local confirm
+    read -rp "[?] configure fail2ban (Y/n): " confirm
+    [[ "$confirm" == [nN] ]] && return 0
     echo "[*] setting up fail2ban"
     local -r src="$CONF_DIR/$FAIL2BAN_FILE"
     [[ -f "$src" ]] || { echo "[!] error: file not found $src, exit" >&2; exit 1; }
@@ -190,10 +222,10 @@ setup_fail2ban() {
     sudo install -Db -S '~' -m 0644 "$tmp_file" "$FAIL2BAN_FILE"
     rm -f "$tmp_file"
     sudo fail2ban-client -t || {
-        echo "[!] error: fail2ban config file test failed, exit" >&2;
-        sudo rm -f "$FAIL2BAN_FILE";
+        echo "[!] error: fail2ban config file test failed, exit" >&2
+        sudo rm -f "$FAIL2BAN_FILE"
         [[ "$has_conf" == true ]] && sudo cp -p "$FAIL2BAN_FILE~" "$FAIL2BAN_FILE"
-        exit 1;
+        exit 1
     }
     echo "[+] fail2ban config file deployed to $FAIL2BAN_FILE"
 }
@@ -203,10 +235,15 @@ setup_fail2ban() {
 # ============================
 
 update_system() {
+    local deps=(
+        "fail2ban"
+        "unattended-upgrades"
+    )
+    [[ -v "UFW" ]] || deps+=("iptables-persistent")
     echo "[*] updating system"
     sudo apt-get update
     sudo apt-get upgrade -y
-    sudo apt-get install -y fail2ban iptables-persistent unattended-upgrades
+    sudo apt-get install -y "${deps[@]}"
     sudo apt-get autoremove -y
     echo "[+] system updated"
 }
@@ -225,11 +262,11 @@ configure_system() {
 
 main() {
     echo "[*] starting"
-    if is_root; then
+    is_root && {
         echo "[*] running as root"
         change_user
         exit 0
-    fi
+    }
     readonly USERNAME
     echo "[*] running as $USERNAME"
     update_system

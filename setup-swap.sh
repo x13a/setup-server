@@ -33,8 +33,8 @@ setup_swap() {
     echo "[*] setting up swap"
     echo "[*] SWAP_SIZE=$SWAP_SIZE"
     [[ "$SWAP_SIZE" =~ ^([1-9][0-9]*)([mMgG])$ ]] || {
-        echo "[!] error: invalid SWAP_SIZE (ex 512M or 1G etc)" >&2;
-        return 1;
+        echo "[!] error: invalid SWAP_SIZE (ex 512M or 1G etc)" >&2
+        return 1
     }
     local -r size_value="${BASH_REMATCH[1]}"
     local -r size_unit="${BASH_REMATCH[2]}"
@@ -46,7 +46,7 @@ setup_swap() {
     [[ -f "$SWAP_FILE" ]] && swap_file_bytes=$(stat -c %s "$SWAP_FILE")
     need_mb=$(( ( swap_bytes - swap_file_bytes ) / 1024 / 1024 ))
     check_space_for_swap $need_mb || return 1
-    if swapon --show=NAME --noheadings | grep -qxF "$SWAP_FILE"; then
+    swapon --show=NAME --noheadings | grep -qxF "$SWAP_FILE" && {
         if (( swap_bytes != swap_file_bytes )); then
             echo "[*] turning off old swap"
             sudo swapoff "$SWAP_FILE" || {
@@ -57,12 +57,12 @@ setup_swap() {
             add_swap_to_fstab
             return 0
         fi
-    fi
+    }
     sudo rm -f "$SWAP_FILE"
     echo "[*] creating swapfile at $SWAP_FILE"
     sudo fallocate -l "$SWAP_SIZE" "$SWAP_FILE" || {
-        echo "[!] error: failed to allocate swapfile" >&2;
-        return 1;
+        echo "[!] error: failed to allocate swapfile" >&2
+        return 1
     }
     sudo chmod 0600 "$SWAP_FILE"
     sudo mkswap "$SWAP_FILE" >/dev/null
@@ -106,32 +106,32 @@ setup_zram() {
     esac
     echo "[*] ZRAM_PERCENT=$ZRAM_PERCENT"
     [[ "$ZRAM_PERCENT" =~ ^([1-9][0-9]?|100)$ ]] || {
-        echo "[!] error: invalid ZRAM_PERCENT" >&2;
-        return 1;
+        echo "[!] error: invalid ZRAM_PERCENT" >&2
+        return 1
     }
     echo "[*] ZRAM_MAX=$ZRAM_MAX"
     [[ "$ZRAM_MAX" =~ ^[1-9][0-9]*$ ]] || {
-        echo "[!] error: invalid ZRAM_MAX" >&2;
-        return 1;
+        echo "[!] error: invalid ZRAM_MAX" >&2
+        return 1
     }
     (( ZRAM_MAX >= ZRAM_MIN )) || {
-        echo "[!] error: ZRAM_MAX < ZRAM_MIN" >&2;
-        return 1;
+        echo "[!] error: ZRAM_MAX < ZRAM_MIN" >&2
+        return 1
     }
-    if [[ "$zram_mode" == "$ZRAM_MODE_AUTO" ]]; then
+    [[ "$zram_mode" == "$ZRAM_MODE_AUTO" ]] && {
         if (( RAM_MB <= ZRAM_AUTO_LIMIT )); then
             zram_mode="$ZRAM_MODE_ON"
         else
             zram_mode="$ZRAM_MODE_OFF"
         fi
         echo "[*] auto-selected zram mode: $zram_mode"
-    fi
+    }
     [[ "$zram_mode" != "$ZRAM_MODE_OFF" ]] || return 0
     local zram_size_mb
     zram_size_mb=$(( RAM_MB * ZRAM_PERCENT / 100 ))
     (( zram_size_mb >= ZRAM_MIN )) || {
-        echo "[!] error: calculated zram size is less than $ZRAM_MIN mb" >&2;
-        return 1;
+        echo "[!] error: calculated zram size is less than $ZRAM_MIN mb" >&2
+        return 1
     }
     (( zram_size_mb > ZRAM_MAX )) && zram_size_mb=$ZRAM_MAX
     echo "[*] enabling zram"

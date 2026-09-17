@@ -64,10 +64,10 @@ ask_dest_addr() {
     local dest
     while true; do
         read -rp "[?] enter destination ip or domain: " dest
-        if resolve_dest "$dest"; then
+        resolve_dest "$dest" && {
             [[ "$dest" != "$DEST_IP" ]] && echo "[+] resolved $dest to $DEST_IP"
             break
-        fi
+        }
         echo "[-] invalid or unreachable destination"
     done
 }
@@ -75,7 +75,7 @@ ask_dest_addr() {
 resolve_dest() {
     local dest="$1"
     [[ -n "$dest" ]] || return 1
-    if is_domain "$dest"; then
+    is_domain "$dest" && {
         local ips
         ips=$(dig +short +tries=1 "$dest" A "$dest" AAAA) || return 1
         local ip
@@ -83,7 +83,7 @@ resolve_dest() {
             { [[ -z "$ip" ]] || is_domain "$ip"; } && continue
             check_ip "$ip" && return 0
         done <<< "$ips"
-    fi
+    }
     check_ip "$dest"
 }
 
@@ -91,10 +91,10 @@ ask_dest_port() {
     local port
     while true; do
         read -rp "[?] enter destination port: " port
-        if is_port "$port"; then
+        is_port "$port" && {
             readonly DEST_PORT="$port"
             break
-        fi
+        }
         echo "[-] invalid port"
     done
 }
@@ -105,10 +105,10 @@ ask_src_port() {
     while true; do
         read -rp "[?] enter source port [$default]: " port
         port="${port:-$default}"
-        if is_port "$port"; then
+        is_port "$port" && {
             readonly SRC_PORT="$port"
             break
-        fi
+        }
         echo "[-] invalid port"
     done
 }
@@ -119,10 +119,10 @@ ask_proto() {
     while true; do
         read -rp "[?] enter protocol (tcp/udp) [$default]: " proto
         proto="${proto:-$default}"
-        if [[ "$proto" == "tcp" || "$proto" == "udp" ]]; then
+        [[ "$proto" == "tcp" || "$proto" == "udp" ]] && {
             readonly PROTO="$proto"
             break
-        fi
+        }
         echo "[-] invalid protocol"
     done
 }
@@ -175,8 +175,8 @@ add_or_replace_iptables_rule() {
     shift 4
     local rules rule_num
     rules=$(sudo "$cmd" -t "$table" -S "$chain") || {
-        echo "[!] error: failed to get rules for $table $chain, exit" >&2;
-        exit 1;
+        echo "[!] error: failed to get rules for $table $chain, exit" >&2
+        exit 1
     }
     rule_num=$(awk -v comment="$comment" '
         $1 != "-A" { next }
