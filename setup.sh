@@ -10,6 +10,7 @@ readonly SSH_FILE="/etc/ssh/sshd_config.d/99-srv.conf"
 readonly IPTABLES_FILE_PART="/etc/iptables/rules.v"
 readonly FAIL2BAN_FILE="/etc/fail2ban/jail.d/sshd.local"
 readonly SYSCTL_FILE="/etc/sysctl.d/99-srv.conf"
+readonly DNS_FILE="/etc/systemd/resolved.conf.d/99-dns.conf"
 
 USERNAME="$(whoami)"
 SSH_PORT="${SSH_PORT:-}"
@@ -176,7 +177,12 @@ configure_iptables() {
     local confirm
     read -rp "[?] configure iptables (Y/n): " confirm
     [[ "$confirm" == [nN] ]] && return 0
-    echo "[*] configuring iptables rules"
+    [[ "$(dpkg-query -W -f='${Status}' iptables-persistent 2>/dev/null)" == "install ok installed" ]] || {
+        echo "[*] installing iptables-persistent"
+        sudo apt-get install -y iptables-persistent
+        echo "[+] iptables-persistent installed"
+    }
+    echo "[*] configuring iptables"
     local opt dst src tmp_file cmd
     for opt in 4 6; do
         echo "[*] configuring ipv$opt rules"
@@ -209,9 +215,14 @@ setup_fail2ban() {
     local confirm
     read -rp "[?] configure fail2ban (Y/n): " confirm
     [[ "$confirm" == [nN] ]] && return 0
-    echo "[*] setting up fail2ban"
     local -r src="$CONF_DIR/$FAIL2BAN_FILE"
     [[ -f "$src" ]] || { echo "[!] error: file not found $src, exit" >&2; exit 1; }
+    command -v fail2ban-client &>/dev/null || {
+        echo "[*] installing fail2ban"
+        sudo apt-get install -y fail2ban
+        echo "[+] fail2ban installed"
+    }
+    echo "[*] setting up fail2ban"
     local tmp_file
     tmp_file="$(mktemp)"
     sed \
@@ -231,19 +242,26 @@ setup_fail2ban() {
 }
 
 # ============================
+# DNS
+# ============================
+
+configure_dns() {
+    echo "[*] configuring dns"
+    local -r src="$CONF_DIR/$DNS_FILE"
+    [[ -f "$src" ]] || { echo "[!] error: file not found $src, exit" >&2; exit 1; }
+    sudo install -D -m 0644 "$src" "$DNS_FILE"
+    echo "[+] dns config file deployed to $DNS_FILE"
+}
+
+# ============================
 # System
 # ============================
 
 update_system() {
-    local deps=(
-        "fail2ban"
-        "unattended-upgrades"
-    )
-    [[ -v "UFW" ]] || deps+=("iptables-persistent")
     echo "[*] updating system"
     sudo apt-get update
     sudo apt-get upgrade -y
-    sudo apt-get install -y "${deps[@]}"
+    sudo apt-get install -y unattended-upgrades
     sudo apt-get autoremove -y
     echo "[+] system updated"
 }
@@ -273,6 +291,7 @@ main() {
     configure_ssh
     configure_iptables
     setup_fail2ban
+    configure_dns
     configure_system
     echo "[+] done, reboot"
 }

@@ -51,7 +51,7 @@ configure_system() {
 
 install_deps() {
     local deps=()
-    command -v netfilter-persistent &>/dev/null || deps+=(iptables-persistent)
+    [[ "$(dpkg-query -W -f='${Status}' iptables-persistent 2>/dev/null)" == "install ok installed" ]] || deps+=(iptables-persistent)
     command -v dig &>/dev/null || deps+=(dnsutils)
     (( ${#deps[@]} != 0 )) || return 0
     echo "[*] installing ${deps[*]}"
@@ -196,7 +196,7 @@ add_or_replace_iptables_rule() {
         }
     ' <<< "$rules")
     [[ -n "$rule_num" ]] || rule_num=0
-    if (( $rule_num != 0 )); then
+    if (( rule_num != 0 )); then
         sudo "$cmd" -t "$table" -R "$chain" "$rule_num" "$@" \
         -m comment --comment "$comment"
     else

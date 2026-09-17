@@ -98,7 +98,7 @@ setup_zram() {
     local zram_mode="$ZRAM"
     zram_mode=$(echo "$zram_mode" | tr '[:upper:]' '[:lower:]')
     case "$zram_mode" in
-        $ZRAM_MODE_AUTO|$ZRAM_MODE_ON|$ZRAM_MODE_OFF) ;;
+        "$ZRAM_MODE_AUTO"|"$ZRAM_MODE_ON"|"$ZRAM_MODE_OFF") ;;
         *)
             echo "[!] error: ZRAM must be auto, on or off" >&2
             return 1
@@ -152,7 +152,7 @@ setup_zram() {
 install_zram() {
     echo "[*] installing zram dependencies"
     sudo apt-get update
-    sudo apt-get install -y zram-tools linux-modules-extra-$(uname -r)
+    sudo apt-get install -y zram-tools linux-modules-extra-"$(uname -r)"
     echo "[+] zram dependencies installed"
 }
 

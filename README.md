@@ -4,7 +4,7 @@ Bash scripts for Ubuntu 24.04/26.04 with `sudo` available.
 
 ## Scripts
 
-- `setup.sh`: system updates, user creation with passwordless sudo, SSH, iptables, Fail2Ban and sysctl settings.
+- `setup.sh`: system updates, user creation with passwordless sudo, SSH, iptables, Fail2Ban, DNS and sysctl settings.
 - `setup-docker.sh`: Docker installation, daemon configuration and systemd resource limits.
 - `setup-swap.sh`: swap and ZRAM configuration.
 - `setup-relay.sh`: TCP/UDP forwarding to an IP or domain using iptables.
