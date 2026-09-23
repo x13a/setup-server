@@ -208,6 +208,27 @@ configure_iptables() {
 }
 
 # ============================
+# UFW
+# ============================
+
+configure_ufw() {
+    [[ -v "UFW" ]] || return 0
+    command -v ufw &>/dev/null || {
+        echo "[*] installing ufw"
+        sudo apt-get install -y ufw
+        echo "[+] ufw installed"
+    }
+    echo "[*] configuring ufw"
+    sudo ufw default deny incoming
+    sudo ufw default allow outgoing
+    sudo ufw default deny routed
+    sudo ufw allow "$SSH_PORT"/tcp
+    sudo sed -i 's/^ENABLED=.*/ENABLED=yes/' /etc/ufw/ufw.conf
+    sudo systemctl enable ufw.service
+    echo "[+] ufw configured"
+}
+
+# ============================
 # Fail2Ban
 # ============================
 
@@ -289,7 +310,11 @@ main() {
     echo "[*] running as $USERNAME"
     update_system
     configure_ssh
-    configure_iptables
+    if [[ -v "UFW" ]]; then
+        configure_ufw
+    else
+        configure_iptables
+    fi
     setup_fail2ban
     configure_dns
     configure_system
