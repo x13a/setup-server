@@ -34,7 +34,7 @@ is_port() {
 # ============================
 
 change_user() {
-    echo "[*] changing user"
+    echo "[*] changing root user"
     prompt_username
     create_user
     switch_to_user
@@ -112,6 +112,8 @@ configure_ssh() {
     echo "[*] ssh port set to $SSH_PORT"
     add_ssh_pub_key
     deploy_ssh_config
+    sudo systemctl enable ssh.socket
+    echo "[+] ssh configured"
 }
 
 find_ssh_port() {
@@ -204,6 +206,7 @@ configure_iptables() {
         rm -f "$tmp_file"
         echo "[+] iptables config file deployed to $dst"
     done
+    sudo systemctl enable netfilter-persistent.service
     echo "[+] iptables configured"
 }
 
@@ -259,6 +262,7 @@ setup_fail2ban() {
         [[ "$has_conf" == true ]] && sudo cp -p "$FAIL2BAN_FILE~" "$FAIL2BAN_FILE"
         exit 1
     }
+    sudo systemctl enable fail2ban.service
     echo "[+] fail2ban config file deployed to $FAIL2BAN_FILE"
 }
 
@@ -267,10 +271,18 @@ setup_fail2ban() {
 # ============================
 
 configure_dns() {
+    case "$(readlink -f /etc/resolv.conf)" in
+        /run/systemd/resolve/stub-resolv.conf|/run/systemd/resolve/resolv.conf) ;;
+        *)
+            echo "[!] /etc/resolv.conf is not linked to systemd-resolved, skipping dns configuration" >&2
+            return 0
+            ;;
+    esac
     echo "[*] configuring dns"
     local -r src="$CONF_DIR/$DNS_FILE"
     [[ -f "$src" ]] || { echo "[!] error: file not found $src, exit" >&2; exit 1; }
     sudo install -D -m 0644 "$src" "$DNS_FILE"
+    sudo systemctl enable systemd-resolved.service
     echo "[+] dns config file deployed to $DNS_FILE"
 }
 
